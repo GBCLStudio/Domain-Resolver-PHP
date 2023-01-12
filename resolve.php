@@ -13,7 +13,12 @@ if (!DOMAIN) {
     echo json_encode(["code" => 1, "msg" => "NoRequestDomain"]);
     exit;
 }
-if (filter_var(!gethostbyname(DOMAIN), FILTER_VALIDATE_IP) || filter_var(DOMAIN, FILTER_VALIDATE_IP)){
+
+/**
+ * 用checkdnsrr代替gethostbyname
+ * 不过感觉这玩意是在初筛（
+ */
+if (!checkdnsrr(DOMAIN,'A') && !checkdnsrr(DOMAIN,'AAAA')){
     die(json_encode([
         "code" => -1,
         "msg" => "Error",
