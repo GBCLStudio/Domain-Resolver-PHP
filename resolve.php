@@ -6,6 +6,7 @@
  */
 
 header('Content-type: text/json;charset=utf-8');
+header("X-Powered-By: GBCLStudio PHP-Project");
 
 define("DOMAIN", $_GET['domain']);
 
@@ -17,19 +18,23 @@ if (!DOMAIN) {
 /**
  * 用checkdnsrr代替gethostbyname
  * 不过感觉这玩意是在初筛（
+ *
+ * @return bool
  */
-if (!checkdnsrr(DOMAIN,'A') && !checkdnsrr(DOMAIN,'AAAA')){
-    die(json_encode([
-        "code" => -1,
-        "msg" => "Error",
-        "data" => "Request is not a validate domain",
-    ]));
+function checkValidation(): bool
+{
+    if (!checkdnsrr(DOMAIN,'A') && !checkdnsrr(DOMAIN,'AAAA')){
+        return false;
+    } else {
+        return true;
+    }
 }
 
 /**
  * @return array
  */
-function DNSRecordHandle(): array {
+function DNSRecordHandle(): array 
+{
     $origin = dns_get_record(DOMAIN, DNS_A + DNS_AAAA);
     return [
         array_column($origin, 'ip'),
@@ -43,7 +48,8 @@ function DNSRecordHandle(): array {
  * @param string $IP
  * @return array
  */
-function getIPInfoHandle(string $IP): array {
+function getIPInfoHandle(string $IP): array 
+{
     $ch = curl_init();
     curl_setopt_array($ch, [
         CURLOPT_URL => "https://api.ip.sb/geoip/" . trim($IP),
@@ -64,7 +70,8 @@ function getIPInfoHandle(string $IP): array {
  * @param array $records
  * @return array|array[]
  */
-function getRecordIPInfo(array $records): array {
+function getRecordIPInfo(array $records): array 
+{
     $result = ["IPv4" => [], "IPv6" => []];
     foreach ($records as $key => $value){
         if ($value) foreach ($value as $index => $item) {
@@ -75,10 +82,17 @@ function getRecordIPInfo(array $records): array {
     return $result;
 }
 
-header("X-Powered-By: GBCLStudio PHP-Project");
-echo json_encode([
-    "code" => 0,
-    "msg" => "OK",
-    "data" => getRecordIPInfo(DNSRecordHandle()),
-    "limit" => 4
-],JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE);
+if (checkValidation()) {
+    echo json_encode([
+        "code" => 0,
+        "msg" => "OK",
+        "data" => getRecordIPInfo(DNSRecordHandle()),
+        "limit" => 4
+        ],JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE);
+} else {
+    die(json_encode([
+        "code" => -1,
+        "msg" => "Error",
+        "data" => "Request is not a validate domain",
+    ]));
+}
