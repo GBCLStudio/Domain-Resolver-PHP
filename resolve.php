@@ -8,12 +8,11 @@
 header('Content-type: text/json;charset=utf-8');
 header("X-Powered-By: GBCLStudio PHP-Project");
 
-define("DOMAIN", $_GET['domain']);
+$domain = $_GET['domain'];
 
-if (!DOMAIN) {
-    echo json_encode(["code" => 1, "msg" => "NoRequestDomain"]);
-    exit;
-}
+if (!$domain) die(json_encode(['code' => -2, 'msg' => 'Error', 'data' => 'NoRequestDomain']));
+
+echo json_encode(doResolveHandle($domain),480);
 
 /**
  * 用checkdnsrr代替gethostbyname
@@ -31,11 +30,12 @@ function checkValidation(): bool
 }
 
 /**
+ * @param string $domain
  * @return array
  */
-function DNSRecordHandle(): array 
+function DNSRecordHandle(string $domain): array 
 {
-    $origin = dns_get_record(DOMAIN, DNS_A + DNS_AAAA);
+    $origin = dns_get_record($domain, DNS_A + DNS_AAAA);
     return [
         array_column($origin, 'ip'),
         array_column($origin, 'ipv6')
@@ -45,14 +45,14 @@ function DNSRecordHandle(): array
 /**
  * 接收从getRecordIPInfo()参数传递的数据并通过API请求获取详细信息
  *
- * @param string $IP
+ * @param string $ip
  * @return array
  */
-function getIPInfoHandle(string $IP): array 
+function getIPInfoHandle(string $ip): array 
 {
     $ch = curl_init();
     curl_setopt_array($ch, [
-        CURLOPT_URL => "https://api.ip.sb/geoip/" . trim($IP),
+        CURLOPT_URL => "https://api.ip.sb/geoip/" . trim($ip),
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_SSL_VERIFYPEER => false,
         CURLOPT_SSL_VERIFYHOST => false
@@ -82,17 +82,24 @@ function getRecordIPInfo(array $records): array
     return $result;
 }
 
-if (checkValidation()) {
-    echo json_encode([
-        "code" => 0,
-        "msg" => "OK",
-        "data" => getRecordIPInfo(DNSRecordHandle()),
-        "limit" => 4
-        ],JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE);
-} else {
-    die(json_encode([
-        "code" => -1,
-        "msg" => "Error",
-        "data" => "Request is not a validate domain",
-    ]));
+/**
+ * @param string $domain
+ * @return array|array[]
+ */
+function doResolveHandle(string $domain): array
+{
+    if (checkValidation()) {
+        return [
+            "code" => 0,
+            "msg" => "OK",
+            "data" => getRecordIPInfo(DNSRecordHandle($domain)),
+            "limit" => 4
+            ];
+    } else {
+        die(json_encode([
+            "code" => -1,
+            "msg" => "Error",
+            "data" => "RequestNotValidate",
+        ]));
+    }
 }
